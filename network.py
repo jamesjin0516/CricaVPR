@@ -3,7 +3,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
-from backbone.vision_transformer import vit_small, vit_base, vit_large, vit_giant2
+from .backbone.vision_transformer import vit_small, vit_base, vit_large, vit_giant2
 import math
 
 class GeM(nn.Module):
@@ -67,7 +67,7 @@ class CricaVPRNet(nn.Module):
         x = torch.cat(x,dim=1)
         x = self.encoder(x).view(B,14*D)
         x = torch.nn.functional.normalize(x, p=2, dim=-1)
-        return x
+        return x_p, x
 
 def get_backbone(pretrained_foundation, foundation_model_path):
     backbone = vit_base(patch_size=14,img_size=518,init_values=1,block_chunks=0)  

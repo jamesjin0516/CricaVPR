@@ -34,7 +34,7 @@ def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize"):
         for inputs, indices in tqdm(queries_dataloader, ncols=100):
             if test_method == "five_crops" or test_method == "nearest_crop" or test_method == 'maj_voting':
                 inputs = torch.cat(tuple(inputs))  # shape = 5*bs x 3 x 480 x 480
-            features = model(inputs.to(args.device))
+            encodings, features = model(inputs.to(args.device))
             if test_method == "five_crops":  # Compute mean along the 5 crops
                 features = torch.stack(torch.split(features, 5)).mean(1)
             if test_method == "nearest_crop" or test_method == 'maj_voting':
@@ -55,7 +55,7 @@ def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize"):
                                         batch_size=args.infer_batch_size, pin_memory=(args.device=="cuda"))
         for inputs, indices in tqdm(database_dataloader, ncols=100):
             inputs = inputs.to(args.device)
-            features = model(inputs)
+            encodings, features = model(inputs)
             for pn, (index, pred_feature) in enumerate(zip(indices, features)):
                 distances[:, index] = ((queries_features-pred_feature)**2).sum(1).cpu().numpy()
         del features, queries_features, pred_feature
@@ -142,7 +142,7 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None):
             all_features = np.empty((len(eval_ds), args.features_dim), dtype="float32")
 
         for inputs, indices in tqdm(database_dataloader, ncols=100):
-            features = model(inputs.to(args.device))
+            encodings, features = model(inputs.to(args.device))
             features = features.cpu().numpy()
             if pca != None:
                 features = pca.transform(features)
@@ -157,7 +157,7 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None):
         for inputs, indices in tqdm(queries_dataloader, ncols=100):
             if test_method == "five_crops" or test_method == "nearest_crop" or test_method == 'maj_voting':
                 inputs = torch.cat(tuple(inputs))  # shape = 5*bs x 3 x 480 x 480
-            features = model(inputs.to(args.device))
+            encodings, features = model(inputs.to(args.device))
             if test_method == "five_crops":  # Compute mean along the 5 crops
                 features = torch.stack(torch.split(features, 5)).mean(1)
             features = features.cpu().numpy()

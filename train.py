@@ -110,7 +110,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
         images = images.view(BS*N, ch, h, w)
         labels = place_id.view(-1)
 
-        descriptors = model(images.to(args.device))
+        encodings, descriptors = model(images.to(args.device))
         descriptors = descriptors.cuda()
         loss = loss_function(descriptors, labels) # Call the loss_function we defined above     
         del descriptors

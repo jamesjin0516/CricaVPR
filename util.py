@@ -8,7 +8,7 @@ from collections import OrderedDict
 from os.path import join
 from sklearn.decomposition import PCA
 
-import datasets_ws
+from . import datasets_ws
 
 def save_checkpoint(args, state, is_best, filename):
     model_path = join(args.save_dir, filename)
@@ -59,7 +59,7 @@ def compute_pca(args, model, pca_dataset_folder, full_features_dim):
         for i, images in enumerate(dl):
             if i*args.infer_batch_size >= len(pca_features):
                 break
-            features = model(images).cpu().numpy()
+            encodings, features = model(images).cpu().numpy()
             pca_features[i*args.infer_batch_size : (i*args.infer_batch_size)+len(features)] = features
     pca = PCA(args.pca_dim)
     pca.fit(pca_features)
