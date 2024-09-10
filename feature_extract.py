@@ -17,7 +17,7 @@ class CricaVPRFeatureExtractor:
         model = model.eval().to(self.device)
         ckpt_path = join(root, content["ckpt_path"])
         if pipeline:
-            saved_state = torch.load(join(ckpt_path, "model_best.pth"))
+            saved_state = torch.load(join(ckpt_path, "model_best.pth"), map_location=self.device)
             model.load_state_dict(saved_state["state_dict"])
         else:
             ckpt_info = SimpleNamespace(resume=ckpt_path, device=self.device)
