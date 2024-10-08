@@ -1,3 +1,5 @@
+import cv2
+import numpy as np
 from os.path import join
 from types import SimpleNamespace
 import torch
@@ -6,11 +8,25 @@ from .network import CricaVPRNet
 from .util import resume_model
 
 
+# Code from https://github.com/jacobgil/vit-explain/
+def show_mask_on_image(img, mask):
+    img = np.float32(img) / 255
+    heatmap = cv2.applyColorMap(np.uint8(255 * mask), cv2.COLORMAP_JET)
+    heatmap = np.float32(heatmap) / 255
+    cam = 0.7 * heatmap + np.float32(img)
+    cam = cam / np.max(cam)
+    return np.uint8(255 * cam)
+
+
 class CricaVPRFeatureExtractor:
 
-    def __init__(self, root, content, pipeline=False):
-       self.device = "cuda" if content["cuda"] else "cpu"
-       self.saved_state, self.model = self.load_model(root, content, pipeline)
+    def __init__(self, root, content, pipeline=False):    # heatmap=True, heatmap_args={"head_fusion": "mean", "discard_ratio": 0.9}):
+        self.device = "cuda" if content["cuda"] else "cpu"
+        self.saved_state, self.model = self.load_model(root, content, pipeline)
+        """
+        if heatmap:
+            self.attention_rollout = VITAttentionRollout(self.model.backbone, **heatmap_args)
+        """
     
     def load_model(self, root, content, pipeline):
         model = CricaVPRNet()
@@ -39,6 +55,29 @@ class CricaVPRFeatureExtractor:
         resized_imgs = transforms.CenterCrop((new_side_len, new_side_len))(images)
         encodings, descriptors = self.model(resized_imgs)
         return encodings, descriptors
+    
+    def generate_heatmap(self, image, input_tensor):
+        w, h = image.size
+        h, w = (h // 14) * 14, (w // 14) * 14
+        image = image.resize((w, h))
+        input_tensor = transforms.Resize((h, w), antialias=None)(input_tensor).to(self.device)
+        side_len = min(input_tensor.shape[-1], input_tensor.shape[-2])
+        cropped = transforms.CenterCrop((side_len, side_len))(input_tensor)
+        encodings, descriptors = self.model(cropped)
+        avg_feature_map = torch.abs(encodings.mean(dim=1)).squeeze().cpu().numpy()
+        activations = avg_feature_map / np.max(avg_feature_map)
+        np_img = np.array(image)[:, :, ::-1]
+        if np_img.shape[0] == side_len:
+            left_bound = int(np_img.shape[1] / 2 - side_len / 2)
+            right_bound = int(np_img.shape[1] / 2 + side_len / 2)
+            np_img = np_img[:, left_bound:right_bound, :]
+        else:
+            top_bound = int(np_img.shape[0] / 2 - side_len / 2)
+            bottom_bound = int(np_img.shape[0] / 2 + side_len / 2)
+            np_img = np_img[top_bound:bottom_bound, :, :]
+        mask = cv2.resize(activations, (side_len, side_len))
+        mask = show_mask_on_image(np_img, mask)
+        return mask
     
     def set_train(self, is_train):
         self.model.train(is_train)
