@@ -18,6 +18,13 @@ class CricaVPRFeatureExtractor:
         ckpt_path = join(root, content["ckpt_path"])
         if pipeline:
             saved_state = torch.load(join(ckpt_path, "model_best.pth"), map_location=self.device)
+            # Remove module prefix from state dict
+            state_dict_keys = list(saved_state["state_dict"].keys())
+            for state_key in state_dict_keys:
+                if state_key.startswith("module"):
+                    new_key = state_key.removeprefix("module.")
+                    saved_state["state_dict"][new_key] = saved_state["state_dict"][state_key]
+                    del saved_state["state_dict"][state_key]
             model.load_state_dict(saved_state["state_dict"])
         else:
             ckpt_info = SimpleNamespace(resume=ckpt_path, device=self.device)
@@ -38,6 +45,9 @@ class CricaVPRFeatureExtractor:
     
     def torch_compile(self, **compile_args):
         self.model = torch.compile(self.model, **compile_args)
+    
+    def set_parallel(self):
+        self.model = torch.nn.DataParallel(self.model)
 
     def set_float32(self):
         self.model.to(torch.float32)
